@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Roy Ayers Tribute Animation (Updated Speed & Bird Position)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roy Ayers Tribute Animation – Responsive</title>
   <style>
     body { margin: 0; overflow: hidden; background: #f5e9d3; }
     canvas { display: block; }
@@ -12,19 +13,27 @@
 <canvas id="mainCanvas"></canvas>
 <script>
   // ===========================
-  // GLOBAL SETUP
+  // GLOBAL SETUP & RESPONSIVE HANDLING
   // ===========================
   const mainCanvas = document.getElementById("mainCanvas");
   const mainCtx = mainCanvas.getContext("2d");
-  mainCanvas.width = window.innerWidth;
-  mainCanvas.height = window.innerHeight;
+
+  // Offscreen canvas used for heat-haze effect
+  let offCanvas = document.createElement("canvas");
+  let offCtx = offCanvas.getContext("2d");
+
+  function resizeCanvas() {
+    mainCanvas.width = window.innerWidth;
+    mainCanvas.height = window.innerHeight;
+    offCanvas.width = mainCanvas.width;
+    offCanvas.height = mainCanvas.height;
+    
+    // Recalculate sun and other parameters if needed here...
+  }
   
-  // Offscreen canvas: All scene elements are drawn here before applying heat haze.
-  const offCanvas = document.createElement("canvas");
-  const offCtx = offCanvas.getContext("2d");
-  offCanvas.width = mainCanvas.width;
-  offCanvas.height = mainCanvas.height;
-  
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
   // ---------------------------
   // HEAT HAZE PARAMETERS
   let waveOffset = 0;
@@ -40,8 +49,8 @@
   const sunPulseSpeed = 0.03;
   let sunRotation = 0;          // overall slow rotation
   const sunRotationSpeed = 0.005;
-  const sunX = mainCanvas.width * 0.8;
-  const sunY = mainCanvas.height * 0.2;
+  const sunX = () => mainCanvas.width * 0.8;
+  const sunY = () => mainCanvas.height * 0.2;
   const baseSunRadius = 70;     // average sun core radius
   const lumpAmplitude = 8;      // controls irregularity of sun edge
   const baseLineLength = 40;    // base ray length
@@ -57,7 +66,6 @@
   // CLASS DEFINITIONS
   // ===========================
   
-  // Flower class with random shape variant & size multiplier
   class Flower {
     constructor(x, y, type) {
       this.x = x;
@@ -67,18 +75,16 @@
       this.rotation = Math.random() * Math.PI * 2;
       this.rotationSpeed = (Math.random() - 0.5) * 0.02;
       this.swayOffset = Math.random() * 1000;
-      this.growth = 0;  // growth factor from 0 to 1
+      this.growth = 0;
       
-      // 40% chance to use alternate petal style
+      // 40% chance for alternate petal style
       this.alternate = (Math.random() < 0.4);
-      // Size categories: small (0.5), medium (0.75), large (1.0), extra-large (1.25)
-      const sizes = [0.5, 0.75, 1.0, 1.25];
+      const sizes = [0.5, 0.75, 1.0, 1.25]; // small, medium, large, extra-large
       this.sizeMultiplier = sizes[Math.floor(Math.random() * sizes.length)];
     }
     updateGrowth() {
-      // Increase growth speed: doubled (200% faster)
       if (this.growth < 1) {
-        this.growth += 0.007;
+        this.growth += 0.007; // 200% faster growth than before
         if (this.growth > 1) this.growth = 1;
       }
     }
@@ -108,7 +114,6 @@
       this.updateGrowth();
       const colors = this.getColors();
       const petalCount = this.getPetalCount();
-      // Base petal length scaled by growth and size multiplier
       const basePetalLength = 60 * this.sizeMultiplier;
       const petalLength = basePetalLength * this.growth;
       const sway = Math.sin((Date.now() + this.swayOffset) * 0.002) * 5;
@@ -124,13 +129,10 @@
         ctx.rotate(angle);
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        // Use different petal shapes based on alternate flag
         if (this.alternate) {
-          // Alternate petal: slightly wavy edges using a modified bezier curve
           ctx.bezierCurveTo(12, -8, 22, -petalLength * 0.4, 0, -petalLength);
           ctx.bezierCurveTo(-22, -petalLength * 0.4, -12, -8, 0, 0);
         } else {
-          // Default petal shape (current design)
           ctx.bezierCurveTo(15, -10, 25, -petalLength * 0.5, 0, -petalLength);
           ctx.bezierCurveTo(-25, -petalLength * 0.5, -15, -10, 0, 0);
         }
@@ -141,7 +143,6 @@
         ctx.fill();
         ctx.restore();
       }
-      // Draw flower center
       ctx.beginPath();
       ctx.arc(0, 0, 8 * this.sizeMultiplier, 0, Math.PI * 2);
       ctx.fillStyle = colors.center;
@@ -159,7 +160,6 @@
     }
   }
   
-  // Bee class (unchanged)
   class Bee {
     constructor() {
       this.x = Math.random() * mainCanvas.width;
@@ -205,7 +205,6 @@
     }
   }
   
-  // Note class for musical notes from the bird
   class Note {
     constructor(x, y) {
       this.x = x;
@@ -229,9 +228,8 @@
     }
   }
   
-  // Bird class with hovering motion, refined shape, and frequent singing.
-  // Bird's base position is now moved away from the sun (bird's baseX set to 65% of width, baseY to 10% of height).
   class Bird {
+    // Bird's base position is moved further from the sun (65% width, 10% height)
     constructor() {
       this.baseX = mainCanvas.width * 0.65;
       this.baseY = mainCanvas.height * 0.10;
@@ -245,15 +243,10 @@
       this.wingSpeed = 0.12;
     }
     update(deltaTime) {
-      // Hovering oscillation
       this.hoverPhase += 0.03;
       this.y = this.baseY + Math.sin(this.hoverPhase) * 10;
       this.x = this.baseX + Math.cos(this.hoverPhase * 0.5) * 5;
-      
-      // Wing flapping
       this.wingAngle += this.wingSpeed;
-      
-      // Singing
       this.singTimer += deltaTime;
       if (this.singTimer > this.singInterval) {
         this.sing();
@@ -261,7 +254,6 @@
       }
     }
     sing() {
-      // Emit 3 musical notes from the bird's beak area
       for (let i = 0; i < 3; i++) {
         notes.push(new Note(this.x + this.size * 0.5, this.y - this.size * 0.3));
       }
@@ -269,14 +261,10 @@
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
-      
-      // Draw body (like a bigger bee shape)
       ctx.beginPath();
       ctx.ellipse(0, 0, this.size * 1.4, this.size, 0, 0, Math.PI * 2);
       ctx.fillStyle = "#555";
       ctx.fill();
-      
-      // Draw head with a gradient for a refined look
       ctx.save();
       ctx.translate(this.size * 0.4, -this.size * 0.4);
       ctx.beginPath();
@@ -286,7 +274,6 @@
       headGrad.addColorStop(1, "#444");
       ctx.fillStyle = headGrad;
       ctx.fill();
-      // Draw beak
       ctx.beginPath();
       ctx.moveTo(this.size * 0.6, 0);
       ctx.lineTo(this.size * 0.6 + 10, -5);
@@ -295,9 +282,6 @@
       ctx.fillStyle = "goldenrod";
       ctx.fill();
       ctx.restore();
-      
-      // Draw flapping wings
-      // Left Wing
       ctx.save();
       ctx.translate(-this.size * 0.2, -this.size * 0.2);
       let leftWingFlap = Math.sin(this.wingAngle) * 0.8;
@@ -307,8 +291,6 @@
       ctx.fillStyle = "rgba(200,200,255,0.5)";
       ctx.fill();
       ctx.restore();
-      
-      // Right Wing
       ctx.save();
       ctx.translate(-this.size * 0.2, this.size * 0.2);
       let rightWingFlap = -Math.sin(this.wingAngle) * 0.8;
@@ -318,7 +300,6 @@
       ctx.fillStyle = "rgba(200,200,255,0.5)";
       ctx.fill();
       ctx.restore();
-      
       ctx.restore();
     }
   }
@@ -330,12 +311,10 @@
   let notes = [];
   let bird = new Bird();
   
-  // Initialize some bees
   for (let i = 0; i < 10; i++) {
     bees.push(new Bee());
   }
   
-  // Utility function: Get valid flower position (avoiding a 150px buffer from the sun)
   function getValidFlowerPosition() {
     let x, y;
     const minDist = 150;
@@ -343,14 +322,13 @@
     while (!goodPosition) {
       x = Math.random() * (mainCanvas.width - 100) + 50;
       y = Math.random() * (mainCanvas.height - 100) + 50;
-      let dx = x - sunX;
-      let dy = y - sunY;
+      let dx = x - sunX();
+      let dy = y - sunY();
       if (Math.sqrt(dx * dx + dy * dy) > minDist) goodPosition = true;
     }
     return { x, y };
   }
   
-  // Add a new flower
   function addFlower() {
     const pos = getValidFlowerPosition();
     const type = flowerTypes[Math.floor(Math.random() * flowerTypes.length)];
@@ -358,7 +336,7 @@
   }
   
   // ===========================
-  // HEAT HAZE FUNCTION (applies distortion to offCanvas content)
+  // HEAT HAZE FUNCTION
   // ===========================
   function applyHeatHaze() {
     const imageData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
@@ -376,7 +354,7 @@
         if (srcX >= width) srcX = width - 1;
         const srcIndex = (y * width + srcX) * 4;
         const destIndex = (y * width + x) * 4;
-        outputData[destIndex]     = data[srcIndex];
+        outputData[destIndex] = data[srcIndex];
         outputData[destIndex + 1] = data[srcIndex + 1];
         outputData[destIndex + 2] = data[srcIndex + 2];
         outputData[destIndex + 3] = data[srcIndex + 3];
@@ -389,7 +367,6 @@
   // DRAW FUNCTIONS FOR OFFSCREEN CANVAS
   // ===========================
   function drawBackground(ctx) {
-    // Subtle vertical gradient background
     const grad = ctx.createLinearGradient(0, 0, 0, offCanvas.height);
     grad.addColorStop(0, "#f9e7c5");
     grad.addColorStop(1, "#f5e9d3");
@@ -397,7 +374,6 @@
     ctx.fillRect(0, 0, offCanvas.width, offCanvas.height);
   }
   
-  // Draw the sun (irregular core + matching rays)
   function drawSunAndRays(ctx) {
     sunPulse += sunPulseSpeed;
     sunRotation += sunRotationSpeed;
@@ -413,7 +389,7 @@
     }
   
     ctx.save();
-    ctx.translate(sunX, sunY);
+    ctx.translate(sunX(), sunY());
     ctx.rotate(sunRotation);
     ctx.beginPath();
     for (let i = 0; i < lumps; i++) {
@@ -427,7 +403,6 @@
     ctx.fillStyle = "orange";
     ctx.fill();
   
-    // Draw rays starting exactly at the sun's irregular edge
     ctx.shadowColor = "rgba(255,150,0,1)";
     ctx.shadowBlur = 15;
     ctx.strokeStyle = "yellow";
@@ -457,22 +432,18 @@
     let deltaTime = now - lastTime;
     lastTime = now;
   
-    // Add a new flower every 5 seconds
     if (now - lastFlowerAdd > 5000) {
       addFlower();
       lastFlowerAdd = now;
     }
   
-    // Update bees, bird, and notes
     bees.forEach(bee => { bee.update(); });
     bird.update(deltaTime);
     notes.forEach(note => { note.update(); });
-    // Remove faded notes
     for (let i = notes.length - 1; i >= 0; i--) {
       if (notes[i].opacity <= 0) notes.splice(i, 1);
     }
   
-    // Clear offscreen canvas and draw background and all elements
     offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
     drawBackground(offCtx);
     drawSunAndRays(offCtx);
@@ -481,7 +452,6 @@
     bird.draw(offCtx);
     notes.forEach(note => { note.draw(offCtx); });
   
-    // Apply heat haze effect to offscreen canvas and render to main canvas
     applyHeatHaze();
     waveOffset += waveSpeed;
     requestAnimationFrame(animate);
